@@ -1,0 +1,289 @@
+#include <stdio.h>
+#include <iostream>
+#include <fstream>
+
+//#include "Tools.h"
+
+vector<string>   GetSplittedString (string str_full, string delimiter)
+{
+	vector<string> list_strSplitted;
+	list_strSplitted . clear();
+
+	string	str_block;
+	str_block . clear();
+
+	string	str_tmp;
+	str_tmp . clear();
+
+
+	unsigned int	size_str = str_full  . size();
+	unsigned int	size_del = delimiter . size();
+
+	bool	doFillBlock = true;
+	bool	doFillList  = false;
+
+	for (unsigned int i=0; i<size_str; i++)
+	{
+		for (unsigned int j=0; j<size_del; j++)
+		{
+			if (str_full[i] == delimiter[j])
+			{
+				doFillBlock = false;
+				break;
+			}
+			else
+			{
+				doFillBlock = true;
+			}
+		}
+
+
+		if (doFillBlock)
+		{
+			str_block . append (str_full, i, 1);
+		}
+
+
+		unsigned int	size_block = str_block . size();
+
+		if (size_block>0 && doFillBlock==false)
+		{
+			list_strSplitted . push_back (str_block);
+			str_block . clear();
+			doFillBlock = true;
+		}
+	}
+
+	if (str_block.size() > 0)
+	{
+		list_strSplitted . push_back (str_block);
+		str_block . clear();
+	}
+
+	return list_strSplitted;
+}
+
+
+
+
+void Convert (TString name_filein, TString fileType)
+{
+	int		linenumber = 0;
+	double	lifetime;
+
+	string	line_fromFile = "";
+
+	vector<string> list_strSplt;
+	list_strSplt . clear();
+
+	vector<double> list_value;
+	list_value . clear();
+
+	ifstream file_input;
+	ofstream file_output;
+
+
+	file_input . open(name_filein.Data());
+
+	TString	name_fileout = name_filein;
+
+	name_fileout. ReplaceAll ("-", "_");
+	name_fileout. ReplaceAll (fileType, "root");
+
+	cout << name_fileout.Data() << endl;
+
+
+	//output root file
+	
+	Double_t radius; 
+	Double_t height;
+	Double_t Br;
+	Double_t Bz;
+	Double_t Bmag;
+	Double_t norB;
+	
+	/*
+	Double_t radius;
+	Double_t theta;
+	Double_t height;
+	Double_t Er;
+	Double_t Etheta;
+	Double_t Ez;
+	*/
+	
+	cout << "create output file and ttree" << endl;	
+
+	TFile *fout		 = new TFile(name_fileout.Data(),	"recreate");
+	TTree *datatree =		new TTree("tree", "");
+
+
+	datatree->Branch("radius",    &radius);
+	datatree->Branch("height",    &height);
+	datatree->Branch("Br",        &Br);
+	datatree->Branch("Bz",        &Bz);
+	datatree->Branch("Bmag",      &Bmag);
+	datatree->Branch("norB",      &norB);
+
+/*	
+	datatree->Branch("radius",    &radius);
+	datatree->Branch("theta",     &theta);
+	datatree->Branch("height",    &height);
+	datatree->Branch("Er",        &Er);
+	datatree->Branch("Etheta",    &Etheta);
+	datatree->Branch("Ez",        &Ez);
+*/
+	
+	//bool trigger = false;
+
+	while (file_input.eof() == false) {
+		getline (file_input, line_fromFile);
+
+		if (file_input.eof() == true)   break;
+
+		list_value   . clear();
+		list_strSplt . clear();
+
+
+		linenumber++;
+		if (linenumber	==	1) continue;
+
+		list_strSplt = GetSplittedString (line_fromFile, ",");
+		//list_strSplt	= GetSplittedString (line_fromFile, " ");
+
+		//cout << "split string from file" << endl;
+
+		unsigned int	size_strSplt = list_strSplt . size();
+
+		for (signed int i=0; i<size_strSplt; i++) {
+			list_value . push_back (atof(list_strSplt[i].data()));
+		}
+
+		/*-----print out some information------*/
+		if ( linenumber == 440) {
+			cout << "\n line number: " << linenumber <<
+				"\t size of list: " << list_value.size() << "size of string: " << size_strSplt << endl;
+			for (int i = 0; i < list_value.size(); i++) {
+				cout << "list_value: " << list_value[i] << endl;
+			}
+		}
+
+
+		if ( list_value.size() == size_strSplt && size_strSplt > 1) {
+
+
+			//for B field
+			//new DR: z - r - Bz - Br - Bmag -norB
+			//current DR: r-z-Br-Bz-Bmag-norB
+			height = list_value[0] * 10;	// convert to mm , new DR
+			radius = list_value[1] * 10;	// convert to mm
+			Bz     = list_value[2];	
+			Br     = list_value[3];	// unit in gauss
+			Bmag   = list_value[4];
+			norB   = list_value[5];
+			
+
+        /*			
+			//for E field, z in E field range from 0 -> Z
+			//convert z in field from 0->z to -z/2 -> z/2
+			//if (list_value[2]*1000 > 0.1 && list_value[2]*1000 < 60.1) list_value[2] *= -1;
+			//else if (list_value[2]*1000 >= 60.1) list_value[2]  -= 60.E-3;
+			list_value[0] *= 1000.;  //unit in mm
+			list_value[2] *= 1000.;  //unit in mm
+			list_value[2] -= 60.; 
+			
+			radius = list_value[0];	
+			theta  = list_value[1];	// in radian
+			height = list_value[2];	
+			Er     = list_value[3]*1.e-3;	// unit in V/mm
+			Etheta = list_value[4]*1.e-3;
+			Ez     = list_value[5]*1.e-3;
+         */
+			
+			datatree->Fill();
+
+		}
+
+		//printf ("\n");
+
+	}
+
+	file_input.close();
+
+	fout->Write();
+	fout->Close();
+	cout << "total points = " << linenumber << endl;
+}
+
+
+
+
+void ASCIIToRoot (TString fileType, TString dirIn, TString nfile)
+{
+
+	TStopwatch	t;
+	t.Start(); 
+
+	printf (" * Job starts!\n\n\n");
+	//TString dirOut = "input/";
+	dirIn += "/";
+	TString	dirOut = dirIn;
+
+	system (Form("mkdir -p  %s", dirOut.Data()));
+
+	vector<TString>	name_filein;
+	name_filein . clear();
+
+	// * Vector for list of output                                                                                                      
+	vector<TString>	name_fileout;
+	name_fileout . clear();
+
+	//TString strDirInput =		"input/";
+	TString	strDirInput	 = dirIn;
+
+	// * Read the direcotry for file name (DT)
+	TSystemDirectory	dirInput (strDirInput, strDirInput);
+
+	//cout << "is folder: " << dirInput.IsFolder() << endl;
+	TList *listFile = dirInput . GetListOfFiles();
+
+	TIter iterFile (listFile);
+
+	while (TSystemFile* file = (TSystemFile*)iterFile())
+	{
+		TString	nameFile = file -> GetName();
+
+		cout << "input file name: " << nameFile << endl;
+
+		if (!nameFile . Contains (fileType.Data()))   continue;
+		TString	namePathIn = strDirInput + nameFile;
+
+		name_filein  . push_back (namePathIn);
+
+	}
+
+	//loop over all input files
+	if (nfile . Contains("-1") || nfile . Contains("all") ) {
+
+		for (unsigned int i = 0; i<name_filein.size(); i++) {
+			Convert(name_filein[i], fileType);
+
+		}
+	}
+
+	else {
+		for (unsigned int i = 0; i<name_filein.size(); i++) {
+			if (name_filein[i].Contains(nfile.Data()) )
+				Convert(name_filein[i], fileType);
+			else	continue;
+		}
+	}
+
+	printf (" * Job's done!\n\n\n\n\n");
+
+	t.Stop(); 
+	t.Print();
+
+}
+
+
+
